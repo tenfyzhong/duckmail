@@ -6,7 +6,8 @@ import { Avatar } from "@heroui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Sun, Moon, Languages, User, UserPlus, LogOut, Trash2, Copy, Check, Wifi, Settings, Eye, EyeOff, KeyRound } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useCallback } from "react"
+import { useHydrated } from "@/hooks/use-hydrated-state"
 import { useAuth } from "@/contexts/auth-context"
 import { useHeroUIToast } from "@/hooks/use-heroui-toast"
 import { useMailStatus } from "@/contexts/mail-status-context"
@@ -23,7 +24,7 @@ interface HeaderProps {
 export default function Header({ onCreateAccount, onLocaleChange, onLogin, isMobile = false }: HeaderProps) {
   const { theme, setTheme } = useTheme()
   const { isAuthenticated, currentAccount, accounts, logout, switchAccount, deleteAccount } = useAuth()
-  const [mounted, setMounted] = useState(false)
+  const mounted = useHydrated()
   const [copiedEmail, setCopiedEmail] = useState(false)
   const [copiedPassword, setCopiedPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -33,10 +34,6 @@ export default function Header({ onCreateAccount, onLocaleChange, onLogin, isMob
   const t = useTranslations("header")
   const tc = useTranslations("common")
   const locale = useLocale()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleCopyToClipboard = useCallback(
     async (text: string, type: string) => {

@@ -1,6 +1,7 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import React, { createContext, useContext, type ReactNode } from "react"
+import { useHydratedState } from "@/hooks/use-hydrated-state"
 import type { ApiProvider, CustomApiProvider } from "@/types"
 
 // 预设的API提供商
@@ -41,11 +42,35 @@ interface ApiProviderProviderProps {
   children: ReactNode
 }
 
+const DEFAULT_CUSTOM_PROVIDERS: CustomApiProvider[] = []
+const DEFAULT_DISABLED_PROVIDERS = ["mailtm"]
+
+function restoreArray<T>(key: string, fallback: T[]): T[] {
+  try {
+    const saved = localStorage.getItem(key)
+    const parsed = saved ? JSON.parse(saved) : fallback
+    return Array.isArray(parsed) ? parsed : fallback
+  } catch (error) {
+    console.error("Error loading API provider settings:", error)
+    return fallback
+  }
+}
+const restoreCustomProviders = () => restoreArray("custom-api-providers", DEFAULT_CUSTOM_PROVIDERS)
+const restoreDisabledProviders = () => restoreArray("disabled-api-providers", DEFAULT_DISABLED_PROVIDERS)
+const restoreApiKey = () => {
+  try {
+    return localStorage.getItem("api-key") || ""
+  } catch (error) {
+    console.error("Error loading API key:", error)
+    return ""
+  }
+}
+
 export function ApiProviderProvider({ children }: ApiProviderProviderProps) {
-  const [customProviders, setCustomProviders] = useState<CustomApiProvider[]>([])
+  const [customProviders, setCustomProviders] = useHydratedState(DEFAULT_CUSTOM_PROVIDERS, restoreCustomProviders)
   // 默认禁用 mail.tm，用户可在设置中手动启用
-  const [disabledProviderIds, setDisabledProviderIds] = useState<string[]>(["mailtm"])
-  const [apiKey, setApiKeyState] = useState<string>("")
+  const [disabledProviderIds, setDisabledProviderIds] = useHydratedState(DEFAULT_DISABLED_PROVIDERS, restoreDisabledProviders)
+  const [apiKey, setApiKeyState] = useHydratedState("", restoreApiKey)
 
   // 所有提供商（预设 + 自定义）
   const providers = [...PRESET_PROVIDERS, ...customProviders]
@@ -54,42 +79,6 @@ export function ApiProviderProvider({ children }: ApiProviderProviderProps) {
   const enabledProviders = providers.filter(provider =>
     !disabledProviderIds.includes(provider.id)
   )
-
-  // 从localStorage加载设置
-  useEffect(() => {
-    console.log(`🔑 [Context] Loading settings from localStorage...`)
-    try {
-      const savedCustomProviders = localStorage.getItem("custom-api-providers")
-      const savedDisabledProviders = localStorage.getItem("disabled-api-providers")
-      const savedApiKey = localStorage.getItem("api-key")
-      console.log(`🔑 [Context] Raw API Key from localStorage: ${savedApiKey}`)
-
-      if (savedCustomProviders) {
-        const parsed = JSON.parse(savedCustomProviders)
-        if (Array.isArray(parsed)) {
-          setCustomProviders(parsed)
-        }
-      }
-
-      if (savedDisabledProviders) {
-        const parsed = JSON.parse(savedDisabledProviders)
-        if (Array.isArray(parsed)) {
-          setDisabledProviderIds(parsed)
-        }
-      }
-
-      if (savedApiKey) {
-        console.log(`🔑 [Context] Loading API Key from localStorage: ${savedApiKey.substring(0, 10)}...`)
-        setApiKeyState(savedApiKey)
-      } else {
-        console.log(`🔑 [Context] No API Key found in localStorage`)
-      }
-    } catch (error) {
-      console.error("Error loading API provider settings:", error)
-    }
-  }, [])
-
-
 
   // 添加自定义提供商
   const addCustomProvider = (provider: CustomApiProvider) => {

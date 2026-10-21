@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   Modal,
   ModalContent,
@@ -51,9 +51,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const [apiKeyInput, setApiKeyInput] = useState(apiKey)
 
-  useEffect(() => {
+  const [previousApiKey, setPreviousApiKey] = useState(apiKey)
+  if (apiKey !== previousApiKey) {
+    setPreviousApiKey(apiKey)
     setApiKeyInput(apiKey)
-  }, [apiKey])
+  }
 
   const resetCustomForm = () => {
     setCustomForm({ id: "", name: "", baseUrl: "", mercureUrl: "" })

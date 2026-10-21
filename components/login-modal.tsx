@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal"
 import { Button } from "@heroui/button"
 import { Input } from "@heroui/input"
@@ -18,8 +18,8 @@ interface LoginModalProps {
 
 export default function LoginModal({ isOpen, onClose, accountAddress }: LoginModalProps) {
   const [address, setAddress] = useState(accountAddress || "")
-  const [username, setUsername] = useState("")
-  const [selectedDomain, setSelectedDomain] = useState<string>("")
+  const [username, setUsername] = useState(accountAddress?.split("@").length === 2 ? accountAddress.split("@")[0] : accountAddress || "")
+  const [selectedDomain, setSelectedDomain] = useState<string>(accountAddress?.split("@").length === 2 ? accountAddress.split("@")[1] : "")
   const [loginMode, setLoginMode] = useState<"split" | "full">("split")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -29,24 +29,19 @@ export default function LoginModal({ isOpen, onClose, accountAddress }: LoginMod
   const t = useTranslations("loginModal")
   const tc = useTranslations("common")
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    if (accountAddress) {
-      setAddress(accountAddress)
-      const parts = accountAddress.split("@")
-      if (parts.length === 2) {
-        setUsername(parts[0])
-        setSelectedDomain(parts[1])
-      } else {
-        setUsername(accountAddress)
-        setSelectedDomain("")
+  const [previousInput, setPreviousInput] = useState({ isOpen, accountAddress })
+  if (isOpen !== previousInput.isOpen || accountAddress !== previousInput.accountAddress) {
+    setPreviousInput({ isOpen, accountAddress })
+    if (isOpen) {
+      if (accountAddress) {
+        setAddress(accountAddress)
+        const parts = accountAddress.split("@")
+        setUsername(parts.length === 2 ? parts[0] : accountAddress)
+        setSelectedDomain(parts.length === 2 ? parts[1] : "")
       }
       setLoginMode("split")
-    } else {
-      setLoginMode("split")
     }
-  }, [isOpen, accountAddress])
+  }
 
   const canSubmit =
     !!password &&

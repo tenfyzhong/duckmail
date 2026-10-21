@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useMemo, useSyncExternalStore } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { getMessages } from "@/lib/api"
+import { createObservableValue } from "@/lib/observable-value"
 import type { Message } from "@/types"
 
 interface UseMailCheckerOptions {
@@ -21,7 +22,8 @@ export function useMailChecker({
   const { token, currentAccount, isAuthenticated } = useAuth()
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const lastMessagesRef = useRef<Message[]>([])
-  const isCheckingRef = useRef(false)
+  const checking = useMemo(() => createObservableValue(false), [])
+  const isChecking = useSyncExternalStore(checking.subscribe, checking.getSnapshot, () => false)
   const isInitializedRef = useRef(false) // 添加初始化标记
 
   // 使用 ref 来存储回调函数，避免依赖项问题
@@ -44,9 +46,9 @@ export function useMailChecker({
       intervalRef.current = null
     }
 
-    isCheckingRef.current = false
+    checking.set(false)
     isInitializedRef.current = false
-  }, [])
+  }, [checking])
 
   // 当依赖项变化时重新开始检查
   useEffect(() => {
@@ -56,11 +58,11 @@ export function useMailChecker({
         return
       }
 
-      if (isCheckingRef.current) {
+      if (checking.getSnapshot()) {
         return
       }
 
-      isCheckingRef.current = true
+      checking.set(true)
 
       try {
         const providerId = currentAccount?.providerId || "duckmail"
@@ -100,7 +102,7 @@ export function useMailChecker({
         console.error("❌ [MailChecker] Failed to check for new messages:", error)
         // 不抛出错误，避免中断定时检查
       } finally {
-        isCheckingRef.current = false
+        checking.set(false)
       }
     }
 
@@ -119,7 +121,7 @@ export function useMailChecker({
         checkForNewMessages()
       }, interval)
     } else {
-      isCheckingRef.current = false
+      checking.set(false)
       isInitializedRef.current = false
     }
 
@@ -128,10 +130,10 @@ export function useMailChecker({
         clearInterval(intervalRef.current)
         intervalRef.current = null
       }
-      isCheckingRef.current = false
+      checking.set(false)
       isInitializedRef.current = false
     }
-  }, [enabled, token, currentAccount, isAuthenticated, interval])
+  }, [enabled, token, currentAccount, isAuthenticated, interval, checking])
 
   // 组件卸载时清理
   useEffect(() => {
@@ -143,6 +145,6 @@ export function useMailChecker({
   return {
     startChecking,
     stopChecking,
-    isChecking: isCheckingRef.current,
+    isChecking,
   }
 }

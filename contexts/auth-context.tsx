@@ -1,6 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useEffect, type ReactNode } from "react"
+import { useHydratedState } from "@/hooks/use-hydrated-state"
+import { EMPTY_AUTH_STATE, restoreAuthState, shouldPersistAuth } from "@/lib/auth-storage"
 import type { Account, AuthState } from "@/types"
 import { createAccount, getToken, getAccount, deleteAccount as deleteAccountApi } from "@/lib/api"
 
@@ -17,15 +19,17 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+function restoreAuth() {
+  try {
+    return restoreAuthState(localStorage.getItem("auth"))
+  } catch (error) {
+    console.error("Failed to parse auth from localStorage:", error)
+    return EMPTY_AUTH_STATE
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [authState, setAuthState] = useState<AuthState>({
-    token: null,
-    currentAccount: null,
-    accounts: [],
-    isAuthenticated: false,
-  })
-
-
+  const [authState, setAuthState, hydrated] = useHydratedState(EMPTY_AUTH_STATE, restoreAuth)
 
   // 从邮箱地址获取提供商ID
   const getProviderIdFromEmail = (email: string) => {
@@ -51,35 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return "duckmail"
     }
   }
-
-  useEffect(() => {
-    // 从本地存储加载认证状态
-    const savedAuth = localStorage.getItem("auth")
-    if (savedAuth) {
-      try {
-        const parsedAuth = JSON.parse(savedAuth)
-
-        // 数据迁移：为现有账户添加providerId（向后兼容）
-        const migratedAccounts = parsedAuth.accounts?.map((account: Account) => ({
-          ...account,
-          providerId: account.providerId || "duckmail" // 默认为duckmail
-        })) || []
-
-        const migratedCurrentAccount = parsedAuth.currentAccount ? {
-          ...parsedAuth.currentAccount,
-          providerId: parsedAuth.currentAccount.providerId || "duckmail"
-        } : null
-
-        setAuthState({
-          ...parsedAuth,
-          accounts: migratedAccounts,
-          currentAccount: migratedCurrentAccount
-        })
-      } catch (error) {
-        console.error("Failed to parse auth from localStorage:", error)
-      }
-    }
-  }, [])
 
   // 监听token刷新事件，同步更新React state
   useEffect(() => {
@@ -114,18 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener("token-refreshed", handleTokenRefreshed as EventListener)
     }
-  }, [])
+  }, [setAuthState])
 
   useEffect(() => {
+    if (!hydrated) return
     // 保存认证状态到本地存储
     // 始终保存状态，包括所有账户信息，即使当前没有活跃的token
-    if (authState.accounts.length > 0 || authState.currentAccount || authState.token) {
+    if (shouldPersistAuth(authState)) {
       localStorage.setItem("auth", JSON.stringify(authState))
     } else {
       // 如果没有任何账户信息，清除localStorage
       localStorage.removeItem("auth")
     }
-  }, [authState])
+  }, [authState, hydrated])
 
   const login = async (address: string, password: string) => {
     try {

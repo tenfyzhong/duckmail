@@ -53,21 +53,19 @@ export default function MessageList({ onSelectMessage, refreshKey }: MessageList
   }, [loading])
 
   // 手动刷新邮件
-  const manualRefresh = useCallback(async () => {
+  const manualRefresh = useCallback(() => {
     if (!token || !currentAccount) return
-
-    try {
-      setLoading(true)
-      const providerId = currentAccount.providerId || "duckmail"
-      const { messages: fetchedMessages } = await getMessages(token, 1, providerId)
-      setMessages(fetchedMessages || [])
-      setError(null)
-    } catch (err) {
-      console.error("Failed to refresh messages:", err)
-      setError(t("refreshError"))
-    } finally {
-      setLoading(false)
-    }
+    const providerId = currentAccount.providerId || "duckmail"
+    return getMessages(token, 1, providerId)
+      .then(({ messages: fetchedMessages }) => {
+        setMessages(fetchedMessages || [])
+        setError(null)
+      })
+      .catch((err) => {
+        console.error("Failed to refresh messages:", err)
+        setError(t("refreshError"))
+      })
+      .finally(() => setLoading(false))
   }, [token, currentAccount, t])
 
   useMailChecker({
@@ -106,6 +104,12 @@ export default function MessageList({ onSelectMessage, refreshKey }: MessageList
 
     fetchInitialMessages()
   }, [token, currentAccount?.id, t])
+
+  const [previousRefreshKey, setPreviousRefreshKey] = useState(refreshKey)
+  if (previousRefreshKey !== refreshKey) {
+    setPreviousRefreshKey(refreshKey)
+    if (refreshKey && refreshKey > 0 && token && currentAccount) setLoading(true)
+  }
 
   // 监听手动刷新
   useEffect(() => {
