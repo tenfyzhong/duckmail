@@ -21,7 +21,6 @@ export function useSmartMailChecker({
   const { token, currentAccount } = useAuth()
   const lastUsedRef = useRef<number>(0)
   const isRefreshingRef = useRef(false)
-  const [mercureConnected, setMercureConnected] = useState(false)
   const [mercureAttempted, setMercureAttempted] = useState(false)
 
   // 当 Mercure 检测到更新时，刷新消息列表
@@ -46,7 +45,7 @@ export function useSmartMailChecker({
     } finally {
       isRefreshingRef.current = false
     }
-  }, [token, onMessagesUpdate])
+  }, [token, currentAccount, onMessagesUpdate])
 
   // 处理直接收到的新消息
   const handleNewMessage = useCallback((message: any) => {
@@ -63,21 +62,18 @@ export function useSmartMailChecker({
     enabled: true, // Mercure 总是尝试连接
   })
 
-  // 监听 Mercure 连接状态变化，使用稳定的状态更新
+  const mercureConnected = mercureResult.isConnected
+  if (mercureConnected && !mercureAttempted) {
+    setMercureAttempted(true)
+  }
+
   useEffect(() => {
-    const isConnected = mercureResult.isConnected
-
-    if (isConnected !== mercureConnected) {
-      setMercureConnected(isConnected)
-      setMercureAttempted(true)
-
-      if (isConnected) {
-        console.log("🚀 [SmartChecker] Mercure connected - using real-time updates")
-      } else if (mercureAttempted) {
-        console.log("🔄 [SmartChecker] Mercure disconnected - falling back to polling")
-      }
+    if (mercureConnected) {
+      console.log("🚀 [SmartChecker] Mercure connected - using real-time updates")
+    } else if (mercureAttempted) {
+      console.log("🔄 [SmartChecker] Mercure disconnected - falling back to polling")
     }
-  }, [mercureResult.isConnected, mercureConnected, mercureAttempted])
+  }, [mercureConnected, mercureAttempted])
 
   // 备用轮询策略：
   // 1. 只有在 Mercure 连接失败时才考虑启用
